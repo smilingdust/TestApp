@@ -1,0 +1,67 @@
+#java调用C层说明
+
+1.在module的根目录创建CMakeLists.txt文件，用于当前工程使用cmake编译jni层代码
+    cmake脚本语法：
+    
+    //cmake要求的最小版本
+    cmake_minimum_required(VERSION 3.4.1)
+    
+    //声明一个dir路径
+    set(distribution_DIR ${CMAKE_SOURCE_DIR}/../distribution)
+    
+    //设置当前工程引用外部动态库
+    # set add lib
+    add_library(lib_add SHARED IMPORTED)
+    //设置引用外部动态库so的引用路径
+    set_target_properties(lib_add PROPERTIES IMPORTED_LOCATION
+                          ${distribution_DIR}/libs/${ANDROID_ABI}/libadd.so)
+    //设置外部动态库so需要引用的头文件路径                      
+    include_directories(lib_add
+                        ${distribution_DIR}/include)
+    //设置当前工程需要编译的动态库名称和编译文件名称
+    add_library(native-math SHARED 或者 STATIC(动态库和静态库)
+                src/main/cpp/native-math.cpp)
+    //设置当前工程要生成的动态库目录            
+    set_target_properties(native-math PROPERTIES
+                          LIBRARY_OUTPUT_DIRECTORY ${distribution_DIR}/libs/${ANDROID_ABI})
+    //找到系统提供的支持库
+    find_library( log-lib #定义系统log的名称为log-lib,为了生成的动态库可以链接到系统的log库，可打印日志
+                   log)
+     //将log库链接到native-math，lib_add              
+    target_link_libraries(native-math
+                          lib_add
+                          log或者是${log-lib})
+    
+2.在src/main目录下创建文件夹命名为cpp，在cpp下创建.h/.cpp/.c文件
+3.在java层定义native方法，并且引用编译的动态so库
+
+  //加载so动态库
+  
+    static{
+        System.loadLibrary("javacallc");
+    }
+4.对应的在c层中生成对应的方法：例如
+
+    Java中方法：
+    
+    public native void testJni（）{
+         。。。。。。。。。。
+    }
+    在jni层对应的方法应该是
+    JNIEXPORT void JNICALL
+    Java_全类名_方法名（JNIEnv* env,jobject job）{}
+    其中JNIEXPORT，JNICALL可写可不写
+5.在每修改一次代码需要重新build一次为了刷新生成的动态库
+6.同时还可以在app的build.gradle当中设置一些参数
+
+    externalNativeBuild {
+                cmake {
+                    cppFlags "-frtti -fexceptions"
+                    arguments "-DANDROID_ARM_NEON=TRUE"
+                    abifilter "x86","armeabi","armeabi-v7a"
+                }
+            }
+    
+    
+    
+   
